@@ -194,7 +194,8 @@ public class Program
             Console.WriteLine("5. Save Transactions to File");
             Console.WriteLine("6. Load Transactions from File");
             Console.WriteLine("7. Exit");
-
+            
+            Console.Write("Select Option: ");
             string choice = Console.ReadLine();
 
             switch (choice)
