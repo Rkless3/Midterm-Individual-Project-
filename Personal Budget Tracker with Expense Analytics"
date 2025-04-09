@@ -1,0 +1,306 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+public class Transaction
+{
+    public string Description { get; set; }
+    public decimal Amount { get; set; }
+    public string Type { get; set; }  // "Income" or "Expense"
+    public string Category { get; set; }
+    public DateTime Date { get; set; }
+
+    // Constructor
+    public Transaction(string description, decimal amount, string type, string category, DateTime date)
+    {
+        Description = description;
+        Amount = amount;
+        Type = type;
+        Category = category;
+        Date = date;
+    }
+}
+
+public class BudgetTracker
+{
+    private List<Transaction> transactions = new List<Transaction>();
+
+    // Method to add a transaction
+    public void AddTransaction(Transaction transaction)
+    {
+        transactions.Add(transaction);
+    }
+
+    // Method to calculate total income
+    public decimal GetTotalIncome()
+    {
+        return transactions.Where(t => t.Type == "Income").Sum(t => t.Amount);
+    }
+
+    // Method to calculate total expenses
+    public decimal GetTotalExpenses()
+    {
+        return transactions.Where(t => t.Type == "Expense").Sum(t => t.Amount);
+    }
+
+    // Method to calculate net savings
+    public decimal GetNetSavings()
+    {
+        return GetTotalIncome() - GetTotalExpenses();
+    }
+
+    // Method to categorize expenses and show summary
+    public void ShowExpenseAnalytics()
+    {
+        var categories = transactions
+            .Where(t => t.Type == "Expense")
+            .GroupBy(t => t.Category)
+            .Select(group => new
+            {
+                Category = group.Key,
+                TotalExpense = group.Sum(t => t.Amount)
+            });
+
+        Console.WriteLine("Expense Analytics:");
+        foreach (var category in categories)
+        {
+            Console.WriteLine($"{category.Category}: ${category.TotalExpense}");
+        }
+    }
+
+    // Method to show most spent category
+    public void ShowMostSpentCategory()
+    {
+        var mostSpentCategory = transactions
+            .Where(t => t.Type == "Expense")
+            .GroupBy(t => t.Category)
+            .OrderByDescending(group => group.Sum(t => t.Amount))
+            .FirstOrDefault();
+
+        if (mostSpentCategory != null)
+        {
+            Console.WriteLine($"Most Spent Category: {mostSpentCategory.Key} - ${mostSpentCategory.Sum(t => t.Amount)}");
+        }
+    }
+
+    // Method to show analytics like average monthly savings
+    public void ShowAverageMonthlySavings()
+    {
+        var months = transactions
+            .Where(t => t.Type == "Income" || t.Type == "Expense")
+            .GroupBy(t => new DateTime(t.Date.Year, t.Date.Month, 1))
+            .Select(g => new
+            {
+                Month = g.Key,
+                Income = g.Where(t => t.Type == "Income").Sum(t => t.Amount),
+                Expenses = g.Where(t => t.Type == "Expense").Sum(t => t.Amount),
+            });
+
+        Console.WriteLine("Average Monthly Savings:");
+        foreach (var month in months)
+        {
+            var savings = month.Income - month.Expenses;
+            Console.WriteLine($"Month: {month.Month.ToString("MMMM yyyy")} - Average Savings: ${savings}");
+        }
+    }
+
+    // Method to sort transactions
+    public void SortTransactions(string sortBy)
+    {
+        switch (sortBy.ToLower())
+        {
+            case "date":
+                transactions = transactions.OrderBy(t => t.Date).ToList();
+                break;
+            case "amount":
+                transactions = transactions.OrderBy(t => t.Amount).ToList();
+                break;
+            case "category":
+                transactions = transactions.OrderBy(t => t.Category).ToList();
+                break;
+            default:
+                Console.WriteLine("Invalid sorting option.");
+                break;
+        }
+    }
+
+    // Display all transactions
+    public void DisplayTransactions()
+    {
+        Console.WriteLine("Transactions:");
+        foreach (var transaction in transactions)
+        {
+            Console.WriteLine($"{transaction.Date.ToShortDateString()} - {transaction.Description} - {transaction.Category} - ${transaction.Amount}");
+        }
+    }
+
+    // Save transactions to file
+    public void SaveTransactionsToFile(string filePath)
+    {
+        using (StreamWriter writer = new StreamWriter(filePath))
+        {
+            foreach (var transaction in transactions)
+            {
+                writer.WriteLine($"{transaction.Date},{transaction.Description},{transaction.Amount},{transaction.Type},{transaction.Category}");
+            }
+        }
+    }
+
+    // Load transactions from file
+    public void LoadTransactionsFromFile(string filePath)
+    {
+        if (File.Exists(filePath))
+        {
+            using (StreamReader reader = new StreamReader(filePath))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    var parts = line.Split(',');
+                    var date = DateTime.Parse(parts[0]);
+                    var description = parts[1];
+                    var amount = decimal.Parse(parts[2]);
+                    var type = parts[3];
+                    var category = parts[4];
+
+                    var transaction = new Transaction(description, amount, type, category, date);
+                    AddTransaction(transaction);
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("No saved data found.");
+        }
+    }
+}
+
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        var budgetTracker = new BudgetTracker();
+
+        bool running = true;
+        while (running)
+        {
+            // Menu
+            Console.WriteLine("\nPlease choose an option:");
+            Console.WriteLine("1. Add Transaction");
+            Console.WriteLine("2. View Transaction Summary");
+            Console.WriteLine("3. View Expense Analytics");
+            Console.WriteLine("4. Sort Transactions");
+            Console.WriteLine("5. Save Transactions to File");
+            Console.WriteLine("6. Load Transactions from File");
+            Console.WriteLine("7. Exit");
+
+            string choice = Console.ReadLine();
+
+            switch (choice)
+            {
+                case "1":
+                    AddTransaction(budgetTracker);
+                    break;
+                case "2":
+                    ViewTransactionSummary(budgetTracker);
+                    break;
+                case "3":
+                    ViewExpenseAnalytics(budgetTracker);
+                    break;
+                case "4":
+                    SortTransactions(budgetTracker);
+                    break;
+                case "5":
+                    SaveTransactions(budgetTracker);
+                    break;
+                case "6":
+                    LoadTransactions(budgetTracker);
+                    break;
+                case "7":
+                    running = false;
+                    break;
+                default:
+                    Console.WriteLine("Invalid option. Please try again.");
+                    break;
+            }
+        }
+    }
+
+    private static void AddTransaction(BudgetTracker budgetTracker)
+    {
+        try
+        {
+            Console.Write("Enter Description: ");
+            string description = Console.ReadLine();
+
+            Console.Write("Enter Amount: ");
+            decimal amount = Convert.ToDecimal(Console.ReadLine());  // Exception will be thrown if invalid input
+
+            Console.Write("Enter Type (Income/Expense): ");
+            string type = Console.ReadLine();
+
+            if (type != "Income" && type != "Expense")
+            {
+                throw new Exception("Invalid transaction type. Must be 'Income' or 'Expense'.");
+            }
+
+            Console.Write("Enter Category: ");
+            string category = Console.ReadLine();
+
+            Console.Write("Enter Date (YYYY-MM-DD): ");
+            DateTime date = DateTime.Parse(Console.ReadLine());
+
+            var transaction = new Transaction(description, amount, type, category, date);
+            budgetTracker.AddTransaction(transaction); // Call method to add the transaction
+
+            Console.WriteLine("Transaction added successfully.");
+        }
+        catch (FormatException ex)
+        {
+            Console.WriteLine("Invalid format. Please check your input.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+    }
+
+    private static void ViewTransactionSummary(BudgetTracker budgetTracker)
+    {
+        Console.WriteLine($"Total Income: ${budgetTracker.GetTotalIncome()}");
+        Console.WriteLine($"Total Expenses: ${budgetTracker.GetTotalExpenses()}");
+        Console.WriteLine($"Net Savings: ${budgetTracker.GetNetSavings()}");
+    }
+
+    private static void ViewExpenseAnalytics(BudgetTracker budgetTracker)
+    {
+        budgetTracker.ShowExpenseAnalytics();
+        budgetTracker.ShowMostSpentCategory();
+        budgetTracker.ShowAverageMonthlySavings();
+    }
+
+    private static void SortTransactions(BudgetTracker budgetTracker)
+    {
+        Console.Write("Enter sort option (date/amount/category): ");
+        string sortBy = Console.ReadLine();
+        budgetTracker.SortTransactions(sortBy);
+        budgetTracker.DisplayTransactions();
+    }
+
+    private static void SaveTransactions(BudgetTracker budgetTracker)
+    {
+        Console.Write("Enter file path to save transactions: ");
+        string filePath = Console.ReadLine();
+        budgetTracker.SaveTransactionsToFile(filePath);
+        Console.WriteLine("Transactions saved successfully.");
+    }
+
+    private static void LoadTransactions(BudgetTracker budgetTracker)
+    {
+        Console.Write("Enter file path to load transactions: ");
+        string filePath = Console.ReadLine();
+        budgetTracker.LoadTransactionsFromFile(filePath);
+        Console.WriteLine("Transactions loaded successfully.");
+    }
+}
